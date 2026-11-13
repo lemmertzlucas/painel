@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel">
+<title>Painel</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Orbitron:400,500,700|Rajdhani:400,500,600,700">
+<style>
+  * { box-sizing: border-box; -webkit-box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: #03060b; color: #cfe9ff;
+    font-family: "Rajdhani", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%; overflow: hidden; -webkit-user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  .mono { font-family: "Orbitron", "Helvetica Neue", Helvetica, sans-serif; }
+
+  /* fundo: grade + vinheta + scanlines (estático, leve para iPad antigo) */
+  .bg { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 0;
+    background-image:
+      radial-gradient(ellipse at 30% 35%, rgba(0,190,255,.13) 0%, rgba(0,0,0,0) 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(255,40,90,.08) 0%, rgba(0,0,0,0) 50%),
+      linear-gradient(rgba(0,200,255,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,.055) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px; }
+  .scan { position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0px, rgba(0,0,0,.18) 1px, transparent 1px, transparent 3px); }
+
+  .app { position: relative; z-index: 1; height: 100%; padding: 12px 16px 0;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+  .row { display: -webkit-box; display: -webkit-flex; display: flex; }
+  .col { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+  .grow { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; min-height: 0; }
+
+  /* barra superior */
+  .hdr { -webkit-align-items: center; align-items: center; height: 26px; font-size: 11px; letter-spacing: 3px;
+         color: #4fb8e8; text-transform: uppercase; border-bottom: 1px solid rgba(0,200,255,.25); margin-bottom: 12px; }
+  .hdr .logo { color: #00e5ff; text-shadow: 0 0 8px rgba(0,229,255,.8); }
+  .hdr .sep { -webkit-flex: 1; flex: 1; height: 1px; margin: 0 14px;
+              background: linear-gradient(90deg, rgba(0,229,255,.6), rgba(0,229,255,0)); }
+  .led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 5px 1px 14px; vertical-align: middle;
+         background: #3a4a5a; }
+  .led.ok { background: #19ffb0; box-shadow: 0 0 8px #19ffb0; }
+  .led.err { background: #ff3366; box-shadow: 0 0 8px #ff3366; }
+  .led.wait { background: #ffcc33; box-shadow: 0 0 8px #ffcc33; }
+
+  /* painéis com cantos recortados */
+  .panel { position: relative; background: rgba(4,18,30,.72); border: 1px solid rgba(0,200,255,.22); padding: 12px 14px; }
+  .panel:before, .panel:after { content: ""; position: absolute; width: 14px; height: 14px; border-color: #00e5ff; border-style: solid; }
+  .panel:before { left: -1px; top: -1px; border-width: 2px 0 0 2px; }
+  .panel:after { right: -1px; bottom: -1px; border-width: 0 2px 2px 0; }
+  .tag { font-size: 11px; letter-spacing: 3px; color: #4fb8e8; text-transform: uppercase; margin-bottom: 8px; }
+  .tag b { color: #00e5ff; font-weight: 600; }
+
+  /* coluna esquerda */
+  .left { width: 39%; margin-right: 14px; }
+  .clockbox { position: relative; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
+  #ring { display: block; width: 100%; max-width: 330px; margin: 0 auto; }
+  .clocktxt { position: absolute; left: 0; right: 0; top: 50%; text-align: center; margin-top: -46px; }
+  #hora { font-size: 58px; font-weight: 500; color: #eaffff; letter-spacing: 2px; line-height: 1;
+          text-shadow: 0 0 14px rgba(0,229,255,.75), 0 0 2px #fff; }
+  #seg { font-size: 22px; color: #00e5ff; margin-top: 8px; letter-spacing: 4px; }
+  #data { font-size: 15px; color: #7fb2d0; letter-spacing: 2px; text-transform: uppercase; margin-top: 8px; }
+
+  .now { margin-top: 12px; }
+  .now .top { -webkit-align-items: center; align-items: center; }
+  #ic { width: 74px; height: 74px; margin-right: 12px; }
+  #temp { font-size: 54px; color: #fff; line-height: 1; text-shadow: 0 0 12px rgba(0,229,255,.6); }
+  #temp sup { font-size: 24px; color: #00e5ff; }
+  #cond { font-size: 19px; color: #bfe6ff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  #cidade { font-size: 13px; color: #4fb8e8; letter-spacing: 2px; text-transform: uppercase; }
+  .stats { margin-top: 10px; }
+  .stat { -webkit-flex: 1; flex: 1; text-align: center; border-left: 1px solid rgba(0,200,255,.2); }
+  .stat:first-child { border-left: 0; }
+  .stat .v { font-size: 18px; color: #eaffff; }
+  .stats.sol { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0,200,255,.14); }
+  .stats.sol .v { color: #ffcc33; }
+  .stat .l { font-size: 11px; color: #4f8fb0; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* previsão */
+  .fc { margin-bottom: 12px; }
+  .dia { -webkit-flex: 1; flex: 1; text-align: center; padding: 2px 0; border-left: 1px solid rgba(0,200,255,.14); }
+  .dia:first-child { border-left: 0; }
+  .dia.hoje .n { color: #00e5ff; }
+  .dia .n { font-size: 13px; color: #7fb2d0; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; }
+  .dia svg { width: 38px; height: 38px; margin: 4px 0 2px; }
+  .dia .t { font-size: 15px; color: #fff; }
+  .dia .t span { color: #4f8fb0; }
+  .bar { height: 3px; background: rgba(0,200,255,.12); margin: 6px 10px 3px; }
+  .bar i { display: block; height: 100%; background: #2fa8ff; box-shadow: 0 0 6px #2fa8ff; }
+  .dia .c { font-size: 12px; color: #5fb7ff; }
+
+  /* notícias */
+  .news .panel { -webkit-flex: 1; flex: 1; min-width: 0; overflow: hidden; }
+  .news .panel + .panel { margin-left: 12px; }
+  .war.panel:before, .war.panel:after { border-color: #ff3b6b; }
+  .war .tag b { color: #ff3b6b; text-shadow: 0 0 8px rgba(255,59,107,.7); }
+  .hack.panel:before, .hack.panel:after { border-color: #19ffb0; }
+  .hack .tag b { color: #19ffb0; text-shadow: 0 0 8px rgba(25,255,176,.7); }
+  .tag small { float: right; letter-spacing: 1px; color: #3d6a85; font-size: 10px; }
+  .item { display: block; text-decoration: none; color: #d6ecff; padding: 6px 0 6px 10px; border-bottom: 1px solid rgba(0,200,255,.09);
+          border-left: 2px solid rgba(0,200,255,.15); margin-bottom: 2px; }
+  .war .item { border-left-color: rgba(255,59,107,.55); }
+  .hack .item { border-left-color: rgba(25,255,176,.5); }
+  .item .tt { font-size: 15.5px; line-height: 1.2; font-weight: 500; max-height: 2.4em; overflow: hidden;
+              display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .item .meta { font-size: 11px; color: #4f8fb0; margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+  .item .meta .novo { color: #ffcc33; }
+  .item:active { background: rgba(0,229,255,.08); }
+  .msg { color: #4f8fb0; font-size: 14px; padding: 6px 0; letter-spacing: 1px; }
+
+  /* letreiro */
+  .ticker { height: 34px; margin: 10px -16px 0; border-top: 1px solid rgba(0,229,255,.35); background: rgba(0,20,34,.85);
+            overflow: hidden; position: relative; white-space: nowrap; }
+  .ticker .lbl { position: absolute; left: 0; top: 0; bottom: 0; z-index: 2; padding: 0 14px; line-height: 34px; font-size: 12px;
+                 letter-spacing: 3px; color: #03060b; background: #00e5ff; box-shadow: 0 0 16px rgba(0,229,255,.7); }
+  #tk { position: absolute; left: 0; top: 0; line-height: 34px; font-size: 16px; color: #bfe6ff; padding-left: 100%;
+        -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0); }
+  #tk span { margin-right: 46px; }
+  #tk span b { color: #ff3b6b; margin-right: 8px; font-weight: 600; }
+  #tk span b.h { color: #19ffb0; }
+  @-webkit-keyframes rolar { from { -webkit-transform: translate3d(0,0,0); } to { -webkit-transform: translate3d(-100%,0,0); } }
+  @keyframes rolar { from { transform: translate3d(0,0,0); } to { transform: translate3d(-100%,0,0); } }
+
+  .pulse { -webkit-animation: pulse 2s ease-in-out infinite; animation: pulse 2s ease-in-out infinite; }
+  @-webkit-keyframes pulse { 50% { opacity: .35; } }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  /* retrato */
+  @media (orientation: portrait) {
+    .stats.sol { display: none; }
+    .news .item:nth-child(n+6) { display: none; }
+    .main { -webkit-flex-direction: column; flex-direction: column; }
+    .left { width: auto; margin: 0 0 12px; -webkit-flex-direction: row; flex-direction: row; }
+    .left .clockbox { width: 48%; margin-right: 12px; }
+    .left .now { -webkit-flex: 1; flex: 1; margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="scan"></div>
+<div class="app">
+  <div class="row hdr mono">
+    <span class="logo">◢ PAINEL</span><span>&nbsp;// SISTEMA ONLINE</span>
+    <span class="sep"></span>
+    <span id="loc">MONTENEGRO - RS</span>
+    <span class="led wait" id="ledW"></span>TEMPO
+    <span class="led wait" id="ledN"></span>NEWS
+  </div>
+
+  <div class="row main grow">
+    <div class="col left">
+      <div class="panel clockbox">
+        <svg id="ring" viewBox="0 0 300 300">
+          <defs>
+            <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#00e5ff"/><stop offset="1" stop-color="#2f6bff"/>
+            </linearGradient>
+          </defs>
+          <g id="ticks"></g>
+          <circle cx="150" cy="150" r="132" fill="none" stroke="rgba(0,200,255,.12)" stroke-width="6"/>
+          <circle id="arcS" cx="150" cy="150" r="132" fill="none" stroke="url(#gA)" stroke-width="6"
+                  stroke-linecap="round" transform="rotate(-90 150 150)" stroke-dasharray="829.4" stroke-dashoffset="829.4"/>
+          <circle cx="150" cy="150" r="118" fill="none" stroke="rgba(0,200,255,.08)" stroke-width="2"/>
+          <circle id="arcM" cx="150" cy="150" r="118" fill="none" stroke="#ff3b6b" stroke-width="2"
+                  transform="rotate(-90 150 150)" stroke-dasharray="741.4" stroke-dashoffset="741.4" opacity=".8"/>
+          <circle id="dot" cx="150" cy="18" r="5" fill="#eaffff"/>
+        </svg>
+        <div class="clocktxt">
+          <div id="hora" class="mono">--:--</div>
+          <div id="seg" class="mono">--</div>
+          <div id="data">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="panel now grow">
+        <div class="tag"><b>■</b> Condições agora</div>
+        <div class="row top">
+          <svg id="ic" viewBox="0 0 64 64"></svg>
+          <div class="grow">
+            <div id="temp" class="mono">--<sup>°C</sup></div>
+            <div id="cond">Carregando…</div>
+            <div id="cidade"></div>
+          </div>
+        </div>
+        <div class="row stats">
+          <div class="stat"><div class="v mono" id="sens">--</div><div class="l">Sensação</div></div>
+          <div class="stat"><div class="v mono" id="umid">--</div><div class="l">Umidade</div></div>
+          <div class="stat"><div class="v mono" id="vento">--</div><div class="l">Vento</div></div>
+        </div>
+        <div class="row stats sol">
+          <div class="stat"><div class="v mono" id="nasce">--</div><div class="l">Nascer do sol</div></div>
+          <div class="stat"><div class="v mono" id="poe">--</div><div class="l">Pôr do sol</div></div>
+          <div class="stat"><div class="v mono" id="uv">--</div><div class="l">Índice UV</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col grow">
+      <div class="panel fc">
+        <div class="tag"><b>■</b> Previsão · 6 dias</div>
+        <div class="row" id="previsao"><div class="msg">Carregando…</div></div>
+      </div>
+      <div class="row news grow">
+        <div class="panel war"><div class="tag"><b>▲ Guerras e conflitos</b><small id="upG"></small></div>
+          <div id="listaG"><div class="msg pulse">Varrendo fontes…</div></div></div>
+        <div class="panel hack"><div class="tag"><b>◆ Ataques hacker</b><small id="upH"></small></div>
+          <div id="listaH"><div class="msg pulse">Varrendo fontes…</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker"><div class="lbl mono">AO VIVO</div><div id="tk"></div></div>
+</div>
+
+<script>
+/* JavaScript antigo (ES5 + XMLHttpRequest) para rodar no Safari do iOS 9/10. */
+(function () {
+  var DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  var DIAS_C = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  var MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  var FEEDS = {
+    G: 'https://news.google.com/rss/search?q=guerra+OR+ataque+militar+OR+bombardeio+OR+m%C3%ADssil+when:2d&hl=pt-BR&gl=BR&ceid=BR:pt-419',
+    H: 'https://news.google.com/rss/search?q=%22ataque+hacker%22+OR+ciberataque+OR+ransomware+OR+%22vazamento+de+dados%22+when:7d&hl=pt-BR&gl=BR&ceid=BR:pt-419'
+  };
+  var NEWS = { G: [], H: [] };
+
+  function $(id) { return document.getElementById(id); }
+  function z(n) { return (n < 10 ? '0' : '') + n; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function store(k, v) {
+    try { if (v === undefined) return window.localStorage.getItem(k); window.localStorage.setItem(k, v); } catch (e) {}
+    return null;
+  }
+  function led(id, s) { $(id).className = 'led ' + s; }
+  function getJSON(url, ok, fail) {
+    var x = new XMLHttpRequest();
+    x.open('GET', url, true);
+    x.timeout = 20000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      if (x.status >= 200 && x.status < 300) {
+        var d; try { d = JSON.parse(x.responseText); } catch (e) { if (fail) fail(); return; }
+        ok(d);
+      } else if (fail) fail();
+    };
+    x.ontimeout = function () { if (fail) fail(); };
+    x.send();
+  }
+  function param(nome) {
+    var m = new RegExp('[?&]' + nome + '=([^&]*)').exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null;
+  }
+
+  /* ---------- Relógio HUD ---------- */
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  (function marcas() {
+    var g = $('ticks');
+    for (var i = 0; i < 60; i++) {
+      var a = i * 6 * Math.PI / 180, longo = i % 5 === 0;
+      var r1 = 146, r2 = longo ? 138 : 142;
+      var l = document.createElementNS(SVGNS, 'line');
+      l.setAttribute('x1', 150 + r1 * Math.sin(a)); l.setAttribute('y1', 150 - r1 * Math.cos(a));
+      l.setAttribute('x2', 150 + r2 * Math.sin(a)); l.setAttribute('y2', 150 - r2 * Math.cos(a));
+      l.setAttribute('stroke', longo ? '#00e5ff' : 'rgba(0,200,255,.35)');
+      l.setAttribute('stroke-width', longo ? 2 : 1);
+      g.appendChild(l);
+    }
+  })();
+  var CS = 2 * Math.PI * 132, CM = 2 * Math.PI * 118;
+
+  function relogio() {
+    var d = new Date(), s = d.getSeconds(), m = d.getMinutes();
+    $('hora').innerHTML = z(d.getHours()) + ':' + z(m);
+    $('seg').innerHTML = z(s);
+    $('data').innerHTML = DIAS[d.getDay()] + ' · ' + z(d.getDate()) + ' ' + MESES[d.getMonth()] + ' ' + d.getFullYear();
+    var fs = (s + 1) / 60;
+    $('arcS').setAttribute('stroke-dashoffset', (CS * (1 - fs)).toFixed(1));
+    $('arcM').setAttribute('stroke-dashoffset', (CM * (1 - (m + s / 60) / 60)).toFixed(1));
+    var a = (s + 1) * 6 * Math.PI / 180;
+    $('dot').setAttribute('cx', (150 + 132 * Math.sin(a)).toFixed(1));
+    $('dot').setAttribute('cy', (150 - 132 * Math.cos(a)).toFixed(1));
+  }
+  relogio();
+  setInterval(relogio, 1000);
+
+  /* ---------- Ícones de tempo (traço neon) ---------- */
+  var SOL = '<circle cx="32" cy="32" r="11" fill="none" stroke="#ffcc33" stroke-width="3"/>' +
+    '<g stroke="#ffcc33" stroke-width="3" stroke-linecap="round"><line x1="32" y1="6" x2="32" y2="13"/><line x1="32" y1="51" x2="32" y2="58"/>' +
+    '<line x1="6" y1="32" x2="13" y2="32"/><line x1="51" y1="32" x2="58" y2="32"/><line x1="13.6" y1="13.6" x2="18.5" y2="18.5"/>' +
+    '<line x1="45.5" y1="45.5" x2="50.4" y2="50.4"/><line x1="13.6" y1="50.4" x2="18.5" y2="45.5"/><line x1="45.5" y1="18.5" x2="50.4" y2="13.6"/></g>';
+  var SOLP = '<circle cx="24" cy="22" r="8" fill="none" stroke="#ffcc33" stroke-width="3"/>' +
+    '<g stroke="#ffcc33" stroke-width="3" stroke-linecap="round"><line x1="24" y1="5" x2="24" y2="9"/><line x1="7" y1="22" x2="11" y2="22"/>' +
+    '<line x1="12" y1="10" x2="15" y2="13"/><line x1="36" y1="10" x2="33" y2="13"/></g>';
+  function nuvem(c, y) {
+    y = y || 0;
+    return '<path d="M18 ' + (46 + y) + 'h28a10 10 0 0 0 0-20 14 14 0 0 0-26.5-3A10 10 0 0 0 18 ' + (46 + y) + 'z" fill="rgba(3,10,18,.9)" stroke="' +
+      (c || '#00e5ff') + '" stroke-width="3" stroke-linejoin="round"/>';
+  }
+  function gotas(c) {
+    return '<g stroke="' + c + '" stroke-width="3" stroke-linecap="round"><line x1="24" y1="50" x2="21" y2="58"/>' +
+      '<line x1="33" y1="50" x2="30" y2="58"/><line x1="42" y1="50" x2="39" y2="58"/></g>';
+  }
+  var RAIO = '<path d="M34 44l-7 10h7l-4 9" fill="none" stroke="#ffcc33" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+  var NEVOA = '<g stroke="#7fb2d0" stroke-width="3" stroke-linecap="round"><line x1="10" y1="24" x2="54" y2="24"/>' +
+    '<line x1="14" y1="34" x2="50" y2="34"/><line x1="10" y1="44" x2="54" y2="44"/></g>';
+  var NEVE = '<g fill="#eaffff"><circle cx="24" cy="54" r="2.5"/><circle cx="33" cy="58" r="2.5"/><circle cx="42" cy="54" r="2.5"/></g>';
+
+  function codigo(c) {
+    if (c === 0) return [SOL, 'Céu limpo'];
+    if (c === 1) return [SOLP + nuvem(), 'Poucas nuvens'];
+    if (c === 2) return [SOLP + nuvem(), 'Parcialmente nublado'];
+    if (c === 3) return [nuvem('#7fb2d0', -4), 'Nublado'];
+    if (c === 45 || c === 48) return [NEVOA, 'Neblina'];
+    if (c >= 51 && c <= 57) return [nuvem('#00e5ff', -8) + gotas('#5fb7ff'), 'Garoa'];
+    if (c >= 61 && c <= 67) return [nuvem('#00e5ff', -8) + gotas('#2f8bff'), c >= 65 ? 'Chuva forte' : 'Chuva'];
+    if (c >= 71 && c <= 77) return [nuvem('#eaffff', -8) + NEVE, 'Neve'];
+    if (c >= 80 && c <= 82) return [SOLP + nuvem('#00e5ff', -4) + gotas('#2f8bff'), 'Pancadas de chuva'];
+    if (c >= 95) return [nuvem('#ff3b6b', -8) + RAIO, 'Tempestade'];
+    return [nuvem(), '—'];
+  }
+
+  /* ---------- Tempo (Open-Meteo, sem chave) ---------- */
+  var LOC = null;
+  function tempo() {
+    if (!LOC) return;
+    led('ledW', 'wait');
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+      '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max' +
+      '&timezone=auto&forecast_days=6';
+    getJSON(url, function (d) {
+      var c = d.current, w = codigo(c.weather_code);
+      $('ic').innerHTML = w[0];
+      $('temp').innerHTML = Math.round(c.temperature_2m) + '<sup>°C</sup>';
+      $('cond').innerHTML = w[1];
+      $('sens').innerHTML = Math.round(c.apparent_temperature) + '°';
+      $('umid').innerHTML = c.relative_humidity_2m + '%';
+      $('vento').innerHTML = Math.round(c.wind_speed_10m) + '<small style="font-size:11px"> km/h</small>';
+      $('cidade').innerHTML = esc(LOC.nome || '');
+      $('loc').innerHTML = esc((LOC.nome || 'LOCAL').toUpperCase());
+      var h = '', dd = d.daily;
+      for (var i = 0; i < dd.time.length; i++) {
+        var p = dd.time[i].split('-');
+        var dt = new Date(+p[0], +p[1] - 1, +p[2]);
+        var nome = i === 0 ? 'hoje' : (i === 1 ? 'amanhã' : DIAS_C[dt.getDay()]);
+        var wi = codigo(dd.weather_code[i]);
+        var ch = dd.precipitation_probability_max ? dd.precipitation_probability_max[i] : null;
+        if (ch === null || ch === undefined) ch = 0;
+        h += '<div class="dia' + (i === 0 ? ' hoje' : '') + '"><div class="n">' + nome + '</div>' +
+             '<svg viewBox="0 0 64 64">' + wi[0] + '</svg>' +
+             '<div class="t mono">' + Math.round(dd.temperature_2m_max[i]) + '° <span>' + Math.round(dd.temperature_2m_min[i]) + '°</span></div>' +
+             '<div class="bar"><i style="width:' + ch + '%"></i></div><div class="c">chuva ' + ch + '%</div></div>';
+      }
+      $('previsao').innerHTML = h;
+      if (dd.sunrise) { $('nasce').innerHTML = dd.sunrise[0].substr(11, 5); $('poe').innerHTML = dd.sunset[0].substr(11, 5); }
+      if (dd.uv_index_max) { var uv = Math.round(dd.uv_index_max[0]);
+        $('uv').innerHTML = uv + '<small style="font-size:11px"> ' + (uv >= 8 ? 'MUITO ALTO' : uv >= 6 ? 'ALTO' : uv >= 3 ? 'MODERADO' : 'BAIXO') + '</small>'; }
+      led('ledW', 'ok');
+    }, function () {
+      led('ledW', 'err');
+      if ($('cond').innerHTML === 'Carregando…') $('cond').innerHTML = 'Sem sinal do tempo';
+    });
+  }
+  function usarLocal(lat, lon, nome) {
+    LOC = { lat: (+lat).toFixed(3), lon: (+lon).toFixed(3), nome: nome };
+    store('painel_loc', JSON.stringify(LOC));
+    tempo();
+  }
+  function porIP() {
+    getJSON('https://ipwho.is/?lang=pt-BR', function (d) {
+      if (d && d.latitude) usarLocal(d.latitude, d.longitude, d.city + (d.region_code ? ' - ' + d.region_code : ''));
+      else { $('cond').innerHTML = 'Defina ?cidade= no link'; led('ledW', 'err'); }
+    }, function () { $('cond').innerHTML = 'Defina ?cidade= no link'; led('ledW', 'err'); });
+  }
+  function localizar() {
+    var cidade = param('cidade');
+    if (cidade) {
+      getJSON('https://geocoding-api.open-meteo.com/v1/search?count=1&language=pt&name=' + encodeURIComponent(cidade), function (d) {
+        var r = d.results && d.results[0];
+        if (r) usarLocal(r.latitude, r.longitude, r.name + (r.admin1 ? ' - ' + r.admin1 : '')); else porIP();
+      }, porIP);
+      return;
+    }
+    // padrão: Montenegro - RS (para trocar, use ?cidade=Nome no link)
+    usarLocal(-29.689, -51.461, 'Montenegro - RS');
+    return;
+    var salvo = store('painel_loc');
+    if (salvo) { try { LOC = JSON.parse(salvo); tempo(); return; } catch (e) {} }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function (p) {
+        var lat = p.coords.latitude, lon = p.coords.longitude;
+        getJSON('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=pt&latitude=' + lat + '&longitude=' + lon,
+          function (d) { usarLocal(lat, lon, (d.city || d.locality || '') + (d.principalSubdivision ? ' - ' + d.principalSubdivision : '')); },
+          function () { usarLocal(lat, lon, ''); });
+      }, porIP, { timeout: 15000 });
+    } else porIP();
+  }
+
+  /* ---------- Notícias (Google Notícias via rss2json) ---------- */
+  function minutosAtras(s) {
+    var m = /(\d+)-(\d+)-(\d+) (\d+):(\d+)/.exec(s || '');
+    if (!m) return null;
+    return Math.round((new Date().getTime() - Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])) / 60000);
+  }
+  function haQuanto(min) {
+    if (min === null) return '';
+    if (min < 1) return 'agora';
+    if (min < 60) return 'há ' + min + ' min';
+    var h = Math.round(min / 60);
+    if (h < 24) return 'há ' + h + ' h';
+    var d = Math.round(h / 24);
+    return 'há ' + d + (d === 1 ? ' dia' : ' dias');
+  }
+  var falhas = 0;
+  function noticias(k) {
+    var url = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(FEEDS[k]) + '&_=' + Math.floor(new Date().getTime() / 600000);
+    getJSON(url, function (d) {
+      var itens = (d && d.items) || [], lista = [], vistos = {};
+      for (var i = 0; i < itens.length && lista.length < 6; i++) {
+        var tt = itens[i].title || '', fonte = '', corte = tt.lastIndexOf(' - ');
+        if (corte > 0) { fonte = tt.substring(corte + 3); tt = tt.substring(0, corte); }
+        var chave = tt.toLowerCase().substring(0, 40);
+        if (vistos[chave]) continue;
+        vistos[chave] = 1;
+        lista.push({ t: tt, f: fonte, l: itens[i].link, m: minutosAtras(itens[i].pubDate) });
+      }
+      if (!lista.length) { $('lista' + k).innerHTML = '<div class="msg">Sem notícias agora.</div>'; return; }
+      NEWS[k] = lista;
+      var h = '';
+      for (var j = 0; j < lista.length; j++) {
+        var n = lista[j], novo = n.m !== null && n.m < 90;
+        h += '<a class="item" target="_blank" href="' + esc(n.l) + '"><div class="tt">' + esc(n.t) + '</div><div class="meta">' +
+             (novo ? '<span class="novo">● novo · </span>' : '') + esc(n.f) + (n.f ? ' · ' : '') + haQuanto(n.m) + '</div></a>';
+      }
+      $('lista' + k).innerHTML = h;
+      var a = new Date();
+      $('up' + k).innerHTML = 'SYNC ' + z(a.getHours()) + ':' + z(a.getMinutes());
+      falhas = 0; led('ledN', 'ok');
+      letreiro();
+    }, function () {
+      falhas++; led('ledN', 'err');
+      if ($('lista' + k).innerHTML.indexOf('item') < 0)
+        $('lista' + k).innerHTML = '<div class="msg">Sem sinal. Nova tentativa em 10 min.</div>';
+    });
+  }
+
+  /* letreiro: mistura as duas listas e rola na base */
+  function letreiro() {
+    var h = '', g = NEWS.G, x = NEWS.H, n = Math.max(g.length, x.length);
+    for (var i = 0; i < n; i++) {
+      if (g[i]) h += '<span><b>▲ GUERRA</b>' + esc(g[i].t) + '</span>';
+      if (x[i]) h += '<span><b class="h">◆ HACKER</b>' + esc(x[i].t) + '</span>';
+    }
+    var tk = $('tk');
+    tk.style.webkitAnimation = 'none'; tk.style.animation = 'none';
+    tk.innerHTML = h;
+    var dur = Math.max(40, Math.round((tk.offsetWidth || 4000) / 70)); // ~70 px/s
+    setTimeout(function () {
+      tk.style.webkitAnimation = 'rolar ' + dur + 's linear infinite';
+      tk.style.animation = 'rolar ' + dur + 's linear infinite';
+    }, 50);
+  }
+
+  localizar();
+  noticias('G');
+  setTimeout(function () { noticias('H'); }, 1500);
+  setInterval(tempo, 30 * 60 * 1000);
+  setInterval(function () { noticias('G'); setTimeout(function () { noticias('H'); }, 1500); }, 10 * 60 * 1000);
+  setTimeout(function () { location.reload(); }, 6 * 60 * 60 * 1000); // evita acúmulo de memória no iPad antigo
+})();
+</script>
+</body>
+</html>
